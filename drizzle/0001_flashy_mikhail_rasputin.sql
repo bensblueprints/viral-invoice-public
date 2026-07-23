@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "whop_checkout_url" text;

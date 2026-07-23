@@ -1,0 +1,16 @@
+# Local dev Postgres (alternative to `npm run db:start` if you have Docker).
+# The app itself runs via `npm run dev`.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: viral
+      POSTGRES_PASSWORD: viral
+      POSTGRES_DB: viral_invoice
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
