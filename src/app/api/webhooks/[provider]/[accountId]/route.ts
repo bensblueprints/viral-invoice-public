@@ -176,6 +176,27 @@ export async function POST(
       });
       jobIds.push(id);
     }
+
+    // Seller's own purchase notification (configured via the v1 API).
+    if (invoice.externalWebhookUrl) {
+      const id = newId();
+      await tx.insert(deliveryJobs).values({
+        id,
+        paymentId: payment.id,
+        type: "external_purchase",
+        status: "pending",
+        payloadJson: {
+          url: invoice.externalWebhookUrl,
+          body: {
+            secret: invoice.externalWebhookSecret,
+            amountCents: payment.amountCents,
+            externalRef: payment.id, // stable + unique → receiver-side idempotency
+            email: event.buyerEmail ?? null,
+          },
+        },
+      });
+      jobIds.push(id);
+    }
   });
 
   // Fire deliveries after the response; the cron route is the retry safety net.

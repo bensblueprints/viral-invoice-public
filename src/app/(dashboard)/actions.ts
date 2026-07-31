@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -10,10 +10,11 @@ import {
   paymentAccounts,
   deliveryJobs,
   payments,
+  apiKeys,
 } from "@/db/schema";
 import { requireUserId } from "@/lib/session";
-import { newId, newSlug } from "@/lib/ids";
-import { encrypt } from "@/lib/crypto";
+import { newId, newSlug, newToken } from "@/lib/ids";
+import { encrypt, sha256Hex } from "@/lib/crypto";
 import { getProvider } from "@/lib/payments/registry";
 import { env, isLocalAppUrl } from "@/lib/env";
 import { getPaymentAccount, getInvoice } from "@/lib/data";
@@ -247,6 +248,46 @@ export async function disconnectStripe() {
   await db
     .delete(paymentAccounts)
     .where(eq(paymentAccounts.id, acct.id));
+}
+
+/* ------------------------------ API keys ---------------------------- */
+
+const apiKeySchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(80),
+});
+
+/** Creates an API key. The raw key is returned once and never stored. */
+export async function createApiKey(formData: FormData) {
+  const userId = await requireUserId();
+  const parsed = apiKeySchema.safeParse({
+    name: String(formData.get("name") ?? ""),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid name" };
+  }
+
+  const key = `vi_${newToken()}`;
+  await db.insert(apiKeys).values({
+    id: newId(),
+    userId,
+    name: parsed.data.name,
+    prefix: key.slice(0, 12),
+    keyHash: sha256Hex(key),
+  });
+
+  revalidatePath("/dashboard/settings");
+  return { ok: true, key };
+}
+
+export async function revokeApiKey(id: string) {
+  const userId = await requireUserId();
+  await db
+    .update(apiKeys)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(eq(apiKeys.id, id), eq(apiKeys.userId, userId), isNull(apiKeys.revokedAt)),
+    );
+  revalidatePath("/dashboard/settings");
 }
 
 /* --------------------------- Delivery retry ------------------------- */

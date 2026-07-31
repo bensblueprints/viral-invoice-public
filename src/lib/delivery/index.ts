@@ -19,6 +19,15 @@ export interface EmailJobPayload {
   subject: string;
   body: string;
 }
+export interface ExternalPurchaseJobPayload {
+  url: string;
+  body: {
+    secret: string | null;
+    amountCents: number;
+    externalRef: string;
+    email: string | null;
+  };
+}
 
 function minutesFromNow(mins: number): Date {
   return new Date(Date.now() + mins * 60_000);
@@ -31,6 +40,9 @@ async function runJob(job: DeliveryJob): Promise<void> {
   } else if (job.type === "email") {
     const p = job.payloadJson as unknown as EmailJobPayload;
     await sendEmail({ to: p.to, subject: p.subject, body: p.body });
+  } else if (job.type === "external_purchase") {
+    const p = job.payloadJson as unknown as ExternalPurchaseJobPayload;
+    await postWebhook(p.url, p.body);
   } else {
     throw new Error(`Unknown delivery job type: ${job.type}`);
   }

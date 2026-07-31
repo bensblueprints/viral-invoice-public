@@ -128,10 +128,31 @@ export const invoices = pgTable(
     priceCapCents: integer("price_cap_cents").notNull().default(0), // 0 = uncapped
     status: text("status").notNull().default("draft"), // draft | active | sold_out | closed
     paidCount: integer("paid_count").notNull().default(0), // source of truth for pricing
+    // Seller-configured purchase notification (set via the v1 API). On payment
+    // completion an 'external_purchase' delivery job POSTs to this URL.
+    externalWebhookUrl: text("external_webhook_url"),
+    externalWebhookSecret: text("external_webhook_secret"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [index("invoices_user_idx").on(t.userId)],
+);
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(), // user-chosen label
+    prefix: text("prefix").notNull(), // first 12 chars of the key, for display
+    keyHash: text("key_hash").notNull().unique(), // sha256 hex of the full key
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (t) => [index("api_keys_user_idx").on(t.userId)],
 );
 
 export const payments = pgTable(
@@ -163,7 +184,7 @@ export const deliveryJobs = pgTable(
     paymentId: text("payment_id")
       .notNull()
       .references(() => payments.id, { onDelete: "cascade" }),
-    type: text("type").notNull(), // 'webhook' | 'email'
+    type: text("type").notNull(), // 'webhook' | 'email' | 'external_purchase'
     status: text("status").notNull().default("pending"), // pending | succeeded | failed | dead
     attemptCount: integer("attempt_count").notNull().default(0),
     nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
@@ -182,3 +203,4 @@ export type Product = typeof products.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type PaymentAccount = typeof paymentAccounts.$inferSelect;
 export type DeliveryJob = typeof deliveryJobs.$inferSelect;
+export type ApiKey = typeof apiKeys.$inferSelect;

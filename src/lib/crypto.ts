@@ -4,6 +4,7 @@ import {
   createDecipheriv,
   randomBytes,
   createHmac,
+  createHash,
 } from "node:crypto";
 import { env } from "./env";
 
@@ -51,4 +52,9 @@ export function decrypt(payload: string): string {
 /** HMAC-SHA256 signature for outbound delivery webhooks. */
 export function signPayload(body: string): string {
   return createHmac("sha256", env.encryptionKey).update(body).digest("hex");
+}
+
+/** SHA-256 hex digest — used to hash API keys at rest (raw keys never stored). */
+export function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
 }

@@ -1,11 +1,15 @@
 import { requireUserId } from "@/lib/session";
-import { getPaymentAccount } from "@/lib/data";
+import { getPaymentAccount, listApiKeys } from "@/lib/data";
 import { isLocalAppUrl } from "@/lib/env";
 import { StripeForm } from "./StripeForm";
+import { ApiKeysForm } from "./ApiKeysForm";
 
 export default async function SettingsPage() {
   const userId = await requireUserId();
-  const account = await getPaymentAccount(userId);
+  const [account, keys] = await Promise.all([
+    getPaymentAccount(userId),
+    listApiKeys(userId),
+  ]);
 
   return (
     <div className="max-w-xl space-y-6">
@@ -17,6 +21,16 @@ export default async function SettingsPage() {
         webhookRegistered={!!account?.webhookEndpointId}
         isLocal={isLocalAppUrl()}
         accountId={account?.id}
+      />
+      <ApiKeysForm
+        keys={keys.map((k) => ({
+          id: k.id,
+          name: k.name,
+          prefix: k.prefix,
+          createdAt: k.createdAt.toISOString(),
+          lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
+          revokedAt: k.revokedAt?.toISOString() ?? null,
+        }))}
       />
     </div>
   );

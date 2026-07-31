@@ -84,6 +84,43 @@ retry safety net. Point a scheduler at it every minute:
 curl -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/cron/deliveries
 ```
 
+## API
+
+Create an API key in **Dashboard → Settings → API Keys**. The full key is shown
+exactly once; only its SHA-256 hash is stored. Send it as a bearer token:
+
+```bash
+KEY=vi_…
+curl -H "Authorization: Bearer $KEY" $APP_URL/api/v1/me
+# → { "userId": "…", "email": "you@example.com" }
+
+curl -H "Authorization: Bearer $KEY" $APP_URL/api/v1/invoices
+# → { "invoices": [ { "id", "slug", "title", "status", "currency",
+#                     "priceCents", "checkoutUrl" } ] }
+
+# Register (or replace) a purchase webhook on one of your invoices:
+curl -X PUT -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{ "url": "https://example.com/hook", "secret": "at-least-16-chars" }' \
+  $APP_URL/api/v1/invoices/<invoiceId>/webhook
+# → { "ok": true }   (DELETE on the same URL clears it)
+```
+
+Bad or revoked keys get `401 { "error": "unauthorized" }`.
+
+### Purchase webhook payload
+
+When a payment completes on an invoice with a webhook configured, the delivery
+queue POSTs (any 2xx = success, retried with the usual backoff):
+
+```json
+{
+  "secret": "at-least-16-chars",
+  "amountCents": 10100,
+  "externalRef": "<payment id — stable and unique, use for idempotency>",
+  "email": "buyer@example.com"
+}
+```
+
 ## Deploying to Coolify
 
 1. Provision a Postgres service; set `DATABASE_URL`.

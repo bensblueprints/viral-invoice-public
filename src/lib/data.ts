@@ -7,7 +7,16 @@ import {
   payments,
   paymentAccounts,
   deliveryJobs,
+  apiKeys,
 } from "@/db/schema";
+
+export async function listApiKeys(userId: string) {
+  return db
+    .select()
+    .from(apiKeys)
+    .where(eq(apiKeys.userId, userId))
+    .orderBy(desc(apiKeys.createdAt));
+}
 
 export async function getPaymentAccount(userId: string) {
   const [row] = await db
